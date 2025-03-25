@@ -18,6 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
+#include "i2c.h"
+#include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -26,6 +30,7 @@
 #include "icm_42688p.h"
 #include "be252q.h"
 #include "stdio.h"
+#include "my1280app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +71,7 @@ PUTCHAR_PROTOTYPE
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -106,39 +112,54 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+  MX_SPI3_Init();
+  MX_TIM1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-//    // 初始化UART2（TX: PA2, RX: PA3）
-//    huart2.Instance = USART2;
-//    huart2.Init.BaudRate = 115200;
-//    huart2.Init.WordLength = UART_WORDLENGTH_8B;
-//    huart2.Init.StopBits = UART_STOPBITS_1;
-//    huart2.Init.Parity = UART_PARITY_NONE;
-//    huart2.Init.Mode = UART_MODE_TX_RX;
-//    HAL_UART_Init(&huart2);
-//
-//    // 初始化UART3（TX: PB10, RX: PB11）
-//    huart3.Instance = USART3;
-//    huart3.Init.BaudRate = 115200;
-//    huart3.Init.WordLength = UART_WORDLENGTH_8B;
-//    huart3.Init.StopBits = UART_STOPBITS_1;
-//    huart3.Init.Parity = UART_PARITY_NONE;
-//    huart3.Init.Mode = UART_MODE_TX_RX;
-//    HAL_UART_Init(&huart3);
-
     // 初始化BE252Q驱动
-    hbe252q.huart_rx = &huart3;
-    hbe252q.huart_tx = &huart2;
-    BE252Q_Init(&hbe252q);
+//    hbe252q.huart_rx = &huart3;
+//    hbe252q.huart_tx = &huart2;
+//    BE252Q_Init(&hbe252q);
+    HAL_Delay(1000);
+    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_RESET);
+    printf("system init\r\n");
+    printf("pwmctrl task run\r\n");
+    printf("esc unlock\r\n");
+//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
+//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
+//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
+//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
+//    printf("pwm start\r\n");
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+//    HAL_Delay(4000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,2000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,2000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,2000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,2000);
+//    printf("set pwm MAX\r\n");
+//    HAL_Delay(6000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+//    printf("set pwm MIN\r\n");
+//    HAL_Delay(8000);
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in freertos.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      if(hbe252q.data_ready) {
-          // 数据已通过中断处理自动转发
-          hbe252q.data_ready = 0;
-      }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -162,13 +183,12 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
-  RCC_OscInitStruct.PLL.PLLN = 18;
+  RCC_OscInitStruct.PLL.PLLN = 16;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -213,6 +233,27 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 /* USER CODE END 4 */
 
 /**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
@@ -223,6 +264,7 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+      printf("some error happened!\r\n");
   }
   /* USER CODE END Error_Handler_Debug */
 }
