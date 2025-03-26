@@ -30,7 +30,8 @@
 #include "icm_42688p.h"
 #include "be252q.h"
 #include "stdio.h"
-#include "my1280app.h"
+#include "rc.h"
+//#include "my1280app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -148,6 +149,30 @@ int main(void)
     __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
     printf("set pwm MIN\r\n");
     HAL_Delay(8000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1100);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+    HAL_Delay(1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1100);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+    HAL_Delay(1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1100);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+    HAL_Delay(1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1100);
+    HAL_Delay(1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
     HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);
     HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
@@ -237,10 +262,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 #define PPM_SYNC_PULSE_MIN  4000
 
 // 全局变量
-volatile uint16_t ppmValues[16]; // 存储各通道值
+extern uint16_t ppmValues[16]; // 存储各通道值
+extern uint8_t ppmUpdated;              // 数据更新标志
 volatile uint8_t ppmChannelIndex = 0;         // 当前通道索引
 volatile uint32_t lastCapture = 0;            // 上一次捕获时间戳
-volatile uint8_t ppmUpdated = 0;              // 数据更新标志
 extern osThreadId_t rvRentTaskHandle;
 volatile uint32_t ulHighFrequencyTimerTicks = 0;  // 统计时间戳计数器
 
