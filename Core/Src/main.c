@@ -111,10 +111,11 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
-  MX_USART3_UART_Init();
   MX_SPI3_Init();
   MX_TIM1_Init();
   MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
     // 初始化BE252Q驱动
 //    hbe252q.huart_rx = &huart3;
@@ -125,28 +126,30 @@ int main(void)
     printf("system init\r\n");
     printf("pwmctrl task run\r\n");
     printf("esc unlock\r\n");
-//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
-//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
-//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
-//    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
-//    printf("pwm start\r\n");
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
-//    HAL_Delay(4000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,2000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,2000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,2000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,2000);
-//    printf("set pwm MAX\r\n");
-//    HAL_Delay(6000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
-//    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
-//    printf("set pwm MIN\r\n");
-//    HAL_Delay(8000);
+    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
+    printf("pwm start\r\n");
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+    HAL_Delay(4000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,2000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,2000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,2000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,2000);
+    printf("set pwm MAX\r\n");
+    HAL_Delay(6000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,1000);
+    __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4,1000);
+    printf("set pwm MIN\r\n");
+    HAL_Delay(8000);
+    HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);
+    HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -230,11 +233,42 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
                             1);
     }
 }
+// PPM信号参数
+#define PPM_SYNC_PULSE_MIN  4000
+
+// 全局变量
+volatile uint16_t ppmValues[16]; // 存储各通道值
+volatile uint8_t ppmChannelIndex = 0;         // 当前通道索引
+volatile uint32_t lastCapture = 0;            // 上一次捕获时间戳
+volatile uint8_t ppmUpdated = 0;              // 数据更新标志
+extern osThreadId_t rvRentTaskHandle;
+volatile uint32_t ulHighFrequencyTimerTicks = 0;  // 统计时间戳计数器
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+    if (htim->Instance == TIM2) {
+        // 你的PPM捕获逻辑（与之前非FreeRTOS代码相同）
+        uint32_t currentCapture = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
+        uint32_t pulseWidth = (currentCapture - lastCapture) & 0xFFFFFFFF;
+
+        if (pulseWidth > PPM_SYNC_PULSE_MIN) {
+            ppmChannelIndex = 0;
+        } else {
+            if (ppmChannelIndex < 16) {
+                ppmValues[ppmChannelIndex++] = pulseWidth;
+                if (ppmChannelIndex >= 16) {
+                    ppmUpdated = 1;
+                    vTaskNotifyGiveFromISR(rvRentTaskHandle, pdFALSE);
+                }
+            }
+        }
+        lastCapture = currentCapture;
+    }
+}
 /* USER CODE END 4 */
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM2 interrupt took place, inside
+  * @note   This function is called  when TIM3 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -245,11 +279,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM2) {
+  if (htim->Instance == TIM3) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-
+    if (htim->Instance == TIM6) {
+        ulHighFrequencyTimerTicks++;  // 每 1us 计数一次
+    }
   /* USER CODE END Callback 1 */
 }
 
